@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# MediaMTX configuration for IITB Integrated Security System
+# Role: RTSP relay between phone WebRTC/WHIP streams and the backend
+#        VideoProcessor RTSP consumer.
+#
+# Phone browser  --WHIP/WebRTC-->  MediaMTX (:8889)
+# MediaMTX       --RTSP--------->  backend VideoProcessor (:8554)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Log level: error / warn / info / debug
+logLevel: info
+
+# ── Timeouts ──────────────────────────────────────────────────────────────────
+readTimeout:    10s
+writeTimeout:   10s
+writeQueueSize: 512
+
+# ── RTSP ──────────────────────────────────────────────────────────────────────
+rtsp: yes
+rtspAddress: :8554
+
+# ── WebRTC / WHIP ─────────────────────────────────────────────────────────────
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigins:
+  - "*"
+
+# ICE / TURN servers — required for cross-network (different WiFi / mobile data)
+# Uses free public TURN relay so media packets can traverse NAT from anywhere.
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+  - url: stun:stun1.l.google.com:19302
+  - url: turn:openrelay.metered.ca:80
+    username: openrelayproject
+    password: openrelayproject
+  - url: turn:openrelay.metered.ca:443
+    username: openrelayproject
+    password: openrelayproject
+  - url: turns:openrelay.metered.ca:443
+    username: openrelayproject
+    password: openrelayproject
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+# Allow any path to be published or consumed without further configuration.
+# Phone streams will appear as  rtsp://localhost:8554/phone_<id>
+# and be pushed via WHIP to     http://localhost:8889/phone_<id>/whip
+paths:
+  all_others:
+    {}

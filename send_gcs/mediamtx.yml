@@ -1,0 +1,96 @@
+###############################################################################
+# mediamtx.yml — Jetson Stream Manager config
+#
+# Key paths:
+#   rtsp://localhost:8554/main.264   → proxy of upstream camera
+#   rtsp://localhost:8554/udp-in     → UDP MPEG-TS ingestion from another PC
+#   rtsp://localhost:8554/<n>-det    → annotated output from detection pipelines
+#
+# HTTP API available at http://localhost:9997
+###############################################################################
+
+# ── Log level: info | warn | error | debug ──────────────────────────────────
+logLevel: info
+logDestinations: [stdout]
+logFile: ""
+
+# ── RTSP server ──────────────────────────────────────────────────────────────
+rtsp: yes
+rtspAddress: :8554
+# Disable auth for local/LAN use; set credentials here if needed:
+# rtspAuthMethods: [basic]
+# TCP-only transport: on Jetson/LAN, UDP RTP is what silently black-holes
+# packets during a camera hiccup, which is what causes ffmpeg to look
+# "alive" while producing no output that reaches MediaMTX. Locking the
+# server to TCP means a stalled connection actually errors/times out
+# instead of quietly dropping frames forever.
+rtspTransports: [tcp]
+
+# ── Timeouts (root cause of "publisher removed while everything looks
+# alive"): a stalled camera read leaves ffmpeg's process running but not
+# writing to MediaMTX. Tightening these makes MediaMTX fail the publisher
+# quickly and predictably, so the ffmpeg watchdog (entrypoint.sh) notices
+# and restarts within seconds instead of tens of minutes. ───────────────
+readTimeout: 10s
+writeTimeout: 10s
+
+# ── WebRTC (optional browser playback) ───────────────────────────────────────
+webrtc: yes
+webrtcAddress: :8889
+
+# ── HTTP API (used by stream-mgr server paths) ───────────────────────────────
+api: yes
+apiAddress: :9997
+
+# ── Metrics endpoint ─────────────────────────────────────────────────────────
+metrics: yes
+metricsAddress: :9998
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+paths:
+
+  # --------------------------------------------------------------------------
+  # Upstream camera — just proxy it for monitoring without running a pipeline
+  # --------------------------------------------------------------------------
+  # main.264:
+  #   source: rtsp://192.168.144.25:8554/main.264
+  #   sourceOnDemand: yes
+  #   # Allow readers even when source is temporarily unavailable
+  #   sourceOnDemandStartTimeout: 10s
+  #   sourceOnDemandCloseAfter: 0s
+
+  # --------------------------------------------------------------------------
+  # UDP MPEG-TS ingestion from another PC on your LAN.
+  #
+  # Your other PC sends with:
+  #   ffmpeg -re -i <source> \
+  #     -c:v libx264 -preset ultrafast -tune zerolatency \
+  #     -pix_fmt yuv420p -f mpegts \
+  #     udp://<JETSON_IP>:9000
+  #
+  # The stream then appears at rtsp://<JETSON_IP>:8554/udp-in
+  # --------------------------------------------------------------------------
+  # udp-in:
+  #   source: udp://localhost:9000
+  #   sourceOnDemand: no     # keep listening always
+
+  # --------------------------------------------------------------------------
+  # Detection output paths (created on demand by pipeline workers).
+  # These are "publisher" paths — the pipeline_worker pushes to them via RTSP.
+  # No source needed here; MediaMTX accepts any publisher automatically.
+  # --------------------------------------------------------------------------
+  # "~.*-det$":
+  #   # Wildcard: match anything ending in -det  (e.g. main.264-det, udp-cam-det)
+  #   # Allow any publisher from localhost
+  #   publishUser: ""
+  #   publishPass: ""
+  #   readUser: ""
+  #   readPass: ""
+  #   sourceOnDemand: yes
+
+  # # --------------------------------------------------------------------------
+  # # Catch-all: any other dynamic path published to this server
+  # # --------------------------------------------------------------------------
+  # "~.*":
+  #   sourceOnDemand: yes
+  all_others:

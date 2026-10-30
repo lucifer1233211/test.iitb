@@ -1,0 +1,13 @@
+{
+  "name": "IIT Bombay Spatio-Temporal Pipeline",
+  "description": "Agentic Spatio-Temporal Predictive Surveillance System with STEAD reflex and Hierarchical RAG distillation.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "AI-powered anomaly detection",
+    "Hierarchical RAG memory",
+    "Submodular data distillation"
+  ]
+}

@@ -1,0 +1,397 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GCS UAV - Ground Control Station</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    .topbar {
+      background: #1e3a8a;
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .topbar-brand { font-weight: 700; font-size: 14px; }
+    .status-pill {
+      background: rgba(255,255,255,0.1);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-left: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #16a34a;
+    }
+    .dot.offline { background: #ef4444; }
+    .container {
+      max-width: 1400px;
+      margin: 20px auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 0 20px;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #1e3a8a;
+    }
+    .field-group {
+      margin-bottom: 12px;
+    }
+    .field-group label {
+      font-size: 12px;
+      font-weight: 600;
+      display: block;
+      margin-bottom: 4px;
+      color: #475569;
+    }
+    .field-group input,
+    .field-group select,
+    .field-group textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+    }
+    .field-group textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+    .button-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary { background: #4f46e5; color: #fff; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .status-card {
+      background: #f1f5f9;
+      border-left: 3px solid #4f46e5;
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 12px;
+      font-size: 12px;
+    }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .status-row:last-child { border-bottom: none; }
+    .status-label { font-weight: 600; color: #475569; }
+    .status-value { color: #0f172a; font-weight: 500; }
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .telem-card {
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+      text-align: center;
+      font-size: 11px;
+    }
+    .telem-label { color: #94a3b8; font-weight: 600; }
+    .telem-value { font-size: 14px; font-weight: 700; color: #1e3a8a; margin-top: 4px; }
+    .log-box {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+    .log-entry { margin: 2px 0; }
+    .success { color: #16a34a; }
+    .error { color: #ef4444; }
+    .warning { color: #f59e0b; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <i class="fa-solid fa-satellite-dish"></i> GCS UAV - Ground Control Station
+  </div>
+  <div>
+    <span class="status-pill">
+      <span class="dot" id="backendDot"></span>
+      <span id="backendStatus">Connecting...</span>
+    </span>
+    <span class="status-pill">
+      <span class="dot" id="missionDot" class="offline"></span>
+      <span id="missionStatus">Idle</span>
+    </span>
+  </div>
+</div>
+
+<div class="container">
+  <!-- LEFT: Mission Control -->
+  <div class="panel">
+    <div class="panel-title"><i class="fa-solid fa-crosshairs"></i> Mission Control</div>
+    
+    <div class="field-group">
+      <label>AI Model</label>
+      <select id="modelSelect">
+        <option value="">Select Model...</option>
+        <option value="person_reid">Person Re-ID</option>
+        <option value="object_detect">Object Detection</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label>Detection Prompt</label>
+      <textarea id="promptInput" placeholder="e.g., person wearing blue shirt"></textarea>
+    </div>
+
+    <div class="field-group">
+      <label>RTSP Stream URL</label>
+      <input type="text" id="streamUrl" placeholder="rtsp://192.168.1.10:8554/stream">
+    </div>
+
+    <div class="button-row">
+      <button class="btn-primary" onclick="startMission()"><i class="fa-solid fa-play"></i> Start</button>
+      <button class="btn-danger" onclick="stopMission()"><i class="fa-solid fa-stop"></i> Stop</button>
+    </div>
+
+    <div class="status-card">
+      <div class="status-row">
+        <span class="status-label">Mission State</span>
+        <span class="status-value" id="missionState">Idle</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Model</span>
+        <span class="status-value" id="currentModel">--</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Frames Processed</span>
+        <span class="status-value" id="framesCount">0</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Detections</span>
+        <span class="status-value" id="detectionsCount">0</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Runtime</span>
+        <span class="status-value" id="runtimeDisplay">00:00:00</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Telemetry & Status -->
+  <div class="panel">
+    <div class="panel-title"><i class="fa-solid fa-gauge-high"></i> Telemetry & Logs</div>
+    
+    <div class="telemetry-grid">
+      <div class="telem-card">
+        <div class="telem-label">Altitude</div>
+        <div class="telem-value" id="telAltitude">--</div>
+      </div>
+      <div class="telem-card">
+        <div class="telem-label">Speed</div>
+        <div class="telem-value" id="telSpeed">--</div>
+      </div>
+      <div class="telem-card">
+        <div class="telem-label">Heading</div>
+        <div class="telem-value" id="telHeading">--</div>
+      </div>
+      <div class="telem-card">
+        <div class="telem-label">Battery</div>
+        <div class="telem-value" id="telBattery">--</div>
+      </div>
+      <div class="telem-card">
+        <div class="telem-label">GPS Fix</div>
+        <div class="telem-value" id="telGPS">--</div>
+      </div>
+      <div class="telem-card">
+        <div class="telem-label">Confidence</div>
+        <div class="telem-value" id="telConfidence">--</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 12px;">
+      <div style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Engineering Log</div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = "http://localhost:5000";
+let runtimeInterval = null;
+let startTime = null;
+
+async function loadHealth() {
+  try {
+    const res = await fetch(`${API_URL}/health`);
+    const data = await res.json();
+    document.getElementById("backendDot").className = "dot " + (data.backend ? "" : "offline");
+    document.getElementById("backendStatus").textContent = data.backend ? "Backend OK" : "Backend Offline";
+  } catch (e) {
+    document.getElementById("backendDot").className = "dot offline";
+    document.getElementById("backendStatus").textContent = "Backend Offline";
+  }
+}
+
+async function loadMissionStatus() {
+  try {
+    const res = await fetch(`${API_URL}/missions/status`);
+    const data = await res.json();
+    const running = data.status === "running";
+    document.getElementById("missionDot").className = "dot " + (running ? "" : "offline");
+    document.getElementById("missionStatus").textContent = running ? "Running" : "Idle";
+    document.getElementById("missionState").textContent = data.status.toUpperCase();
+    document.getElementById("currentModel").textContent = data.model || "--";
+    document.getElementById("framesCount").textContent = data.frames_processed || 0;
+    document.getElementById("detectionsCount").textContent = data.detections || 0;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadTelemetry() {
+  try {
+    const res = await fetch(`${API_URL}/telemetry`);
+    const data = await res.json();
+    document.getElementById("telAltitude").textContent = (data.altitude || 0).toFixed(1) + "m";
+    document.getElementById("telSpeed").textContent = (data.groundspeed || 0).toFixed(1) + "m/s";
+    document.getElementById("telHeading").textContent = (data.heading || 0).toFixed(0) + "°";
+    document.getElementById("telBattery").textContent = (data.battery_pct || 0).toFixed(0) + "%";
+    document.getElementById("telGPS").textContent = data.gps_fix ? "OK" : "NO";
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function startMission() {
+  const model = document.getElementById("modelSelect").value;
+  const prompt = document.getElementById("promptInput").value.trim();
+  const streamUrl = document.getElementById("streamUrl").value.trim();
+  
+  if (!model || !prompt || !streamUrl) {
+    alert("Please fill in all fields");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/missions/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, prompt, stream_url: streamUrl })
+    });
+    const data = await res.json();
+    addLog("Mission started: " + (data.mission_id || "success"), "success");
+    startTime = Date.now();
+    if (runtimeInterval) clearInterval(runtimeInterval);
+    runtimeInterval = setInterval(updateRuntime, 1000);
+    loadMissionStatus();
+  } catch (e) {
+    addLog("Failed to start mission: " + e.message, "error");
+  }
+}
+
+async function stopMission() {
+  try {
+    await fetch(`${API_URL}/missions/stop`, { method: "POST" });
+    addLog("Mission stopped", "warning");
+    if (runtimeInterval) clearInterval(runtimeInterval);
+    loadMissionStatus();
+  } catch (e) {
+    addLog("Failed to stop mission: " + e.message, "error");
+  }
+}
+
+function updateRuntime() {
+  if (!startTime) return;
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+  document.getElementById("runtimeDisplay").textContent = 
+    String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
+
+function addLog(msg, type = "info") {
+  const logBox = document.getElementById("logBox");
+  const entry = document.createElement("div");
+  entry.className = "log-entry " + type;
+  const time = new Date().toLocaleTimeString();
+  entry.textContent = `[${time}] ${msg}`;
+  logBox.appendChild(entry);
+  logBox.scrollTop = logBox.scrollHeight;
+  if (logBox.children.length > 50) logBox.removeChild(logBox.children[0]);
+}
+
+setInterval(() => {
+  loadHealth();
+  loadMissionStatus();
+  loadTelemetry();
+}, 2000);
+
+loadHealth();
+loadMissionStatus();
+loadTelemetry();
+addLog("System initialized", "success");
+</script>
+
+<div class="container" style="margin-top: 20px;">
+  <div class="panel" style="grid-column: 1 / -1;">
+    <div class="panel-title"><i class="fa-solid fa-display"></i> CORTEX Live Feed</div>
+    <iframe
+      src="http://localhost:3000"
+      title="CORTEX"
+      allow="fullscreen; camera; microphone; autoplay"
+      allowFullScreen
+      style="width: 100%; height: 600px; border: 1px solid #e2e8f0; border-radius: 4px;"
+    />
+  </div>
+</div>
+
+</body>
+</html>

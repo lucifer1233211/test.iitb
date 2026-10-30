@@ -1,0 +1,68 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.next/
+.cache/
+
+# Logs
+*.log
+backend.log
+frontend.log
+backend-error.log
+frontend-error.log
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime/local state
+streams.json
+
+# Backend runtime data (contains enrolled face images)
+backend_server/uploads/
+backend_server/test_face.jpg
+
+# Frontend build artifacts
+frontend/.next/
+frontend/out/
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Runtime PID / state files (generated at runtime)
+.cloudflared.pid
+.terminals.pid
+.browsers.pid
+
+# Downloaded binaries (auto-downloaded by scripts)
+cloudflared.exe
+
+# ML model weights (large, auto-downloaded at first run)
+*.onnx
+*.tflite
+*.task
+*.pt
+*.pth

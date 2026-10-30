@@ -1,0 +1,1081 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GCS UAV - Ground Control Station</title>
+<meta name="description" content="Professional UAV Ground Control Station - Live telemetry, AI detection, mission control.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* =========================================================
+   MISSION CONTROL PANEL scoped styles (mission.js-driven)
+   All IDs/classes prefixed mc- to avoid collisions.
+   ========================================================= */
+.mission-control-panel { max-width:1800px; margin:0 auto 10px auto; padding:12px; }
+.mc-section { margin-bottom:12px; }
+.mc-section:last-child { margin-bottom:0; }
+.mc-section-title { font-size:10px; font-weight:700; color:var(--color-navy); margin:0 0 7px 0; text-transform:uppercase; letter-spacing:.6px; border-bottom:1px solid var(--color-border); padding-bottom:5px; }
+.mc-health-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+.mc-health-card { display:flex; align-items:center; gap:7px; background:var(--color-card-bg); border:1px solid var(--color-border); border-radius:6px; padding:6px 8px; }
+.mc-health-text { display:flex; flex-direction:column; }
+.mc-health-name { font-size:10px; font-weight:700; color:var(--color-navy); }
+.mc-health-val  { font-size:10px; color:var(--color-text-secondary); font-weight:400; margin-top:1px; }
+.mc-stage-row { display:flex; align-items:center; gap:7px; margin-bottom:7px; }
+.mc-stage-icon { font-size:16px; }
+.mc-stage-title { font-size:13px; font-weight:700; color:var(--color-navy); }
+.mc-progress-track { background:var(--color-border); border-radius:4px; height:8px; overflow:hidden; margin-bottom:4px; }
+.mc-progress-fill { background:linear-gradient(90deg,#4f46e5,#1e3a8a); height:100%; width:0%; transition:width .4s ease; }
+.mc-progress-percent { font-size:10.5px; font-weight:600; color:var(--color-text-secondary); margin-bottom:8px; }
+.mc-info-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:7px; }
+.mc-info-box { background:var(--color-card-bg); border:1px solid var(--color-border); border-radius:6px; padding:6px 8px; font-size:11.5px; color:var(--color-text-primary); }
+.mc-info-box.accent { border-left:3px solid var(--color-navy); }
+.mc-label { display:block; font-size:9px; font-weight:700; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:2px; }
+.mc-info-box .mc-val { font-size:11.5px; color:var(--color-text-primary); }
+.mc-next-step { display:inline-flex; align-items:center; gap:5px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:20px; padding:2px 9px; font-size:10.5px; font-weight:600; color:#3730a3; margin-top:3px; }
+.mc-next-step::before { content:"NEXT \2192"; font-size:8.5px; font-weight:700; color:#6366f1; letter-spacing:.4px; }
+.mc-pipeline-wrap { display:flex; flex-direction:column; gap:0; }
+.mc-pipe-step { display:flex; align-items:center; gap:7px; padding:4px 7px; border-radius:5px; transition:background .2s; }
+.mc-pipe-step .mc-pipe-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--color-border); border:2px solid #ccc; }
+.mc-pipe-step .mc-pipe-label { font-size:11px; color:var(--color-text-muted); font-weight:500; }
+.mc-pipe-done .mc-pipe-dot { background:#22c55e; border-color:#16a34a; }
+.mc-pipe-done .mc-pipe-label { color:#15803d; }
+.mc-pipe-active { background:#eff6ff; border:1px solid #bfdbfe; }
+.mc-pipe-active .mc-pipe-dot { background:#4f46e5; border-color:#6366f1; box-shadow:0 0 0 3px rgba(79,70,229,.2); animation:mc-pulse 1.4s ease-in-out infinite; }
+.mc-pipe-active .mc-pipe-label { color:#4f46e5; font-weight:700; }
+.mc-pipe-connector { width:2px; height:7px; background:var(--color-border); margin-left:11px; }
+.mc-pipe-connector-done { background:#22c55e; }
+@keyframes mc-pulse { 0%,100%{box-shadow:0 0 0 3px rgba(79,70,229,.2)}50%{box-shadow:0 0 0 6px rgba(79,70,229,.06)} }
+.mc-timing-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
+.mc-timing-card { background:var(--color-card-bg); border:1px solid var(--color-border); border-radius:6px; padding:6px 8px; text-align:center; }
+.mc-timing-card .mc-value { font-size:12px; font-weight:700; color:var(--color-navy); display:block; margin-top:2px; font-variant-numeric:tabular-nums; }
+.mc-stats-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+.mc-stat-card { background:var(--color-card-bg); border:1px solid var(--color-border); border-radius:6px; padding:6px 8px; }
+.mc-stat-card .mc-value { font-size:12px; font-weight:700; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; margin-top:2px; }
+.mc-offline-banner { display:none; background:#fef2f2; border:1px solid var(--color-danger); color:var(--color-danger); border-radius:6px; padding:6px 10px; font-size:12px; font-weight:600; margin-bottom:8px; }
+.mc-offline-banner.active { display:block; }
+.mc-progress-pipeline { display:grid; grid-template-columns:1fr 220px; gap:12px; }
+.mc-timeline-list { display:flex; flex-direction:column; max-height:180px; overflow-y:auto; }
+.mc-timeline-item { display:flex; align-items:center; gap:9px; padding:6px 3px; border-bottom:1px solid var(--color-border); font-size:11.5px; }
+.mc-timeline-item:last-child { border-bottom:none; }
+.mc-timeline-dot { width:7px; height:7px; border-radius:50%; background:var(--color-navy); flex-shrink:0; }
+.mc-timeline-label { flex:1; color:var(--color-text-primary); font-weight:500; }
+.mc-timeline-time  { color:var(--color-text-muted); font-size:10.5px; }
+.mc-timeline-empty { color:var(--color-text-muted); font-size:11.5px; padding:6px 3px; }
+@media(max-width:1300px){.mc-health-grid,.mc-timing-grid,.mc-stats-grid{grid-template-columns:repeat(3,1fr)}.mc-progress-pipeline{grid-template-columns:1fr}}
+@media(max-width:640px){.mc-health-grid,.mc-timing-grid,.mc-stats-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<!-- TOP HEADER BAR -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <i class="fa-solid fa-satellite-dish brand-icon"></i>
+    <span class="project-name">GCS UAV &nbsp;&bull;&nbsp; Ground Control Station</span>
+  </div>
+  <div class="topbar-right">
+    <button class="topbar-icon-btn" type="button" onclick="toggleGcsFullscreen()" title="Fullscreen GCS" aria-label="Fullscreen GCS">
+      <i class="fa-solid fa-expand"></i>
+    </button>
+    <div class="status-pill" id="backendStatusPill">
+      <span class="dot" id="backendDot"></span>
+      <span id="backendStatusText">Connecting...</span>
+    </div>
+    <div class="status-pill" id="telemetryStatusPill">
+      <span class="dot" id="telemetryDot"></span>
+      <span id="telemetryStatusText">Telemetry</span>
+    </div>
+    <div class="status-pill" id="missionStatusPill">
+      <span class="dot" id="missionDot"></span>
+      <span id="missionStatusText">Mission Idle</span>
+    </div>
+    <div class="clock" id="currentTime">--:--:--</div>
+  </div>
+</header>
+
+<!-- SYSTEM STATUS BAR -->
+<div class="status-bar" id="systemStatusBar">
+  <div class="status-bar-item">
+    <span class="status-bar-dot" id="sbBackendDot"></span>
+    <span class="status-bar-label">Backend</span>
+    <span class="status-bar-val" id="sbBackendVal">&#8212;</span>
+  </div>
+  <div class="status-bar-item">
+    <span class="status-bar-dot" id="sbCameraDot"></span>
+    <span class="status-bar-label">Camera</span>
+    <span class="status-bar-val" id="sbCameraVal">&#8212;</span>
+  </div>
+  <div class="status-bar-item">
+    <span class="status-bar-dot" id="sbTelemetryDot"></span>
+    <span class="status-bar-label">Telemetry</span>
+    <span class="status-bar-val" id="sbTelemetryVal">&#8212;</span>
+  </div>
+  <div class="status-bar-item">
+    <span class="status-bar-dot" id="sbRtspDot"></span>
+    <span class="status-bar-label">RTSP Stream</span>
+    <span class="status-bar-val" id="sbRtspVal">&#8212;</span>
+  </div>
+  <div class="status-bar-item">
+    <span class="status-bar-dot" id="sbMissionDot"></span>
+    <span class="status-bar-label">Mission</span>
+    <span class="status-bar-val" id="sbMissionVal">Idle</span>
+  </div>
+</div>
+
+<!-- TAB NAVIGATION -->
+<nav class="tab-nav" role="tablist">
+  <button class="tab-btn active" id="tabMissionCtrl" role="tab" aria-selected="true" aria-controls="panel-mission" onclick="switchTab('mission')">
+    <i class="fa-solid fa-crosshairs"></i><span>Mission Control</span>
+  </button>
+  <button class="tab-btn" id="tabLiveFeed" role="tab" aria-selected="false" aria-controls="panel-livefeed" onclick="switchTab('livefeed')">
+    <i class="fa-solid fa-video"></i><span>Live Feed</span>
+  </button>
+  <button class="tab-btn" id="tabTelemetry" role="tab" aria-selected="false" aria-controls="panel-telemetry" onclick="switchTab('telemetry')">
+    <i class="fa-solid fa-gauge-high"></i><span>Telemetry</span>
+  </button>
+  <button class="tab-btn" id="tabResults" role="tab" aria-selected="false" aria-controls="panel-results" onclick="switchTab('results')">
+    <i class="fa-solid fa-eye"></i><span>Detection</span>
+  </button>
+  <button class="tab-btn" id="tabCortex" role="tab" aria-selected="false" aria-controls="panel-cortex" onclick="switchTab('cortex')">
+    <i class="fa-solid fa-brain"></i><span>CORTEX</span>
+  </button>
+  <button class="tab-btn" id="tabLogs" role="tab" aria-selected="false" aria-controls="panel-logs" onclick="switchTab('logs')">
+    <i class="fa-solid fa-terminal"></i><span>Logs</span>
+  </button>
+  <button class="active-mission-badge" id="activeMissionBadge" onclick="openMissionDrawer()" title="View active mission details">
+    <span class="badge-dot" id="badgeDot"></span>
+    <i class="fa-solid fa-helicopter" style="font-size:10px;"></i>
+    <span id="badgeLabel">Active Mission</span>
+  </button>
+</nav>
+
+<div class="dashboard-wrap">
+
+<!-- ============================================================
+     TAB: MISSION CONTROL
+     ============================================================ -->
+<div id="panel-mission" class="tab-panel active">
+<div class="dashboard-grid">
+
+  <!-- LEFT: Mission Control -->
+  <section class="panel left-panel">
+    <h2 class="panel-title"><i class="fa-solid fa-crosshairs"></i> Mission Control</h2>
+
+    <div class="field-group">
+      <label for="modelSelect"><i class="fa-solid fa-brain" style="margin-right:4px;color:var(--accent)"></i>AI Model</label>
+      <select id="modelSelect"><option value="">Loading models...</option></select>
+    </div>
+
+    <div class="field-group">
+      <label for="promptInput"><i class="fa-solid fa-comment-dots" style="margin-right:4px;color:var(--accent)"></i>Detection Prompt</label>
+      <textarea id="promptInput" rows="2" placeholder="e.g. person having black hair"></textarea>
+    </div>
+
+    <div class="field-group">
+      <label for="streamUrlInput"><i class="fa-solid fa-signal" style="margin-right:4px;color:var(--accent)"></i>RTSP Stream URL</label>
+      <input type="text" id="streamUrlInput" placeholder="rtsp://192.168.1.10:8554/stream">
+    </div>
+
+    <div class="field-group">
+      <label><i class="fa-solid fa-mountain" style="margin-right:4px;color:var(--accent)"></i>Altitude Source</label>
+      <div class="radio-row">
+        <label class="radio-option"><input type="radio" name="altitudeSource" value="telemetry" checked><span>Telemetry</span></label>
+        <label class="radio-option"><input type="radio" name="altitudeSource" value="manual"><span>Manual</span></label>
+      </div>
+    </div>
+
+    <div class="field-group" id="manualAltitudeGroup" style="display:none;">
+      <label for="manualAltitudeInput">Manual Altitude (m)</label>
+      <input type="number" id="manualAltitudeInput" placeholder="e.g. 30" step="0.1">
+    </div>
+
+    <div class="button-row">
+      <button id="startMissionBtn" class="btn btn-primary"><i class="fa-solid fa-play"></i> Start Mission</button>
+      <button id="stopMissionBtn" class="btn btn-danger"><i class="fa-solid fa-stop"></i> Stop Mission</button>
+    </div>
+
+    <div class="mission-status-card" id="missionStatusCard">
+      <h3><i class="fa-solid fa-circle-info" style="margin-right:5px;color:var(--accent)"></i>Active Mission</h3>
+      <div class="status-row"><span>State</span><span id="msState">Stopped</span></div>
+      <div class="status-row"><span>Mission ID</span><span id="msMissionId">--</span></div>
+      <div class="status-row"><span>Model</span><span id="msModel">--</span></div>
+      <div class="status-row"><span>Prompt</span><span id="msPrompt">--</span></div>
+      <div class="status-row"><span>Runtime</span><span id="msRuntime">--</span></div>
+    </div>
+  </section>
+
+  <!-- CENTER: Live Video -->
+  <section class="panel center-panel">
+    <h2 class="panel-title"><i class="fa-solid fa-video"></i> Live Video Feed</h2>
+    <div class="dual-video-grid">
+      <div class="video-column">
+        <div class="video-column-label"><i class="fa-regular fa-circle" style="color:var(--success);margin-right:4px;"></i>Original Camera Feed</div>
+        <div class="video-wrapper">
+          <iframe id="videoFrame" class="video-frame" title="Original camera feed" allow="autoplay; fullscreen" allowfullscreen></iframe>
+          <div class="video-spinner" id="videoSpinner" style="display:none;"></div>
+          <div class="video-placeholder" id="videoPlaceholder">No Video Source Configured</div>
+          <div class="video-overlay">
+            <span class="connection-indicator" id="videoConnectionIndicator">
+              <span class="dot" id="videoConnDot"></span> Stream Offline
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="video-column">
+        <div class="video-column-label"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent);margin-right:4px;"></i>Processed AI Feed</div>
+        <div class="video-wrapper">
+          <iframe id="processedFrame" class="video-frame" title="Processed AI feed" allow="autoplay; fullscreen" allowfullscreen></iframe>
+          <div class="video-spinner" id="processedSpinner" style="display:none;"></div>
+          <div class="video-placeholder" id="processedPlaceholder">Processed AI stream unavailable</div>
+          <div class="video-overlay">
+            <span class="connection-indicator" id="processedConnectionIndicator">
+              <span class="dot" id="processedConnDot"></span> Stream Offline
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="video-meta" style="margin-top:8px;">
+      <div class="meta-item"><span class="meta-label">Resolution</span><span id="videoResolution">--</span></div>
+      <div class="meta-item"><span class="meta-label">Orig. Status</span><span id="videoStreamStatus">--</span></div>
+      <div class="meta-item"><span class="meta-label">AI Status</span><span id="processedStreamStatus">--</span></div>
+      <div class="meta-item"><span class="meta-label">Last Frame</span><span id="videoLastFrame">--</span></div>
+    </div>
+
+    <!-- Collapsible Video Statistics -->
+    <div class="vidstats-card">
+      <div class="vidstats-header" onclick="toggleVidStats(this)" role="button" aria-expanded="false">
+        <span class="vidstats-header-title"><i class="fa-solid fa-chart-bar" style="margin-right:5px;"></i>Video Statistics</span>
+        <div class="vidstats-peek">
+          <div class="vidstats-peek-item">
+            <span class="vidstats-peek-label">FPS</span>
+            <span class="vidstats-peek-val" id="videoFps">--</span>
+          </div>
+          <div class="vidstats-peek-item">
+            <span class="vidstats-peek-label">Latency</span>
+            <span class="vidstats-peek-val" id="videoLatency">--</span>
+          </div>
+          <div class="vidstats-peek-item">
+            <span class="vidstats-peek-label">Bitrate</span>
+            <span class="vidstats-peek-val" id="videoBitrate">--</span>
+          </div>
+        </div>
+        <i class="fa-solid fa-chevron-down vidstats-toggle"></i>
+      </div>
+      <div class="vidstats-body">
+        <div class="vidstats-grid">
+          <div class="vidstat-item">
+            <span class="vidstat-label">Dropped Frames</span>
+            <span class="vidstat-val" id="videoDropped">--</span>
+          </div>
+          <div class="vidstat-item">
+            <span class="vidstat-label">Resolution</span>
+            <span class="vidstat-val" id="vidstatResolution">--</span>
+          </div>
+          <div class="vidstat-item">
+            <span class="vidstat-label">Original URL</span>
+            <span class="vidstat-val" id="vidstatUrl" style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">--</span>
+          </div>
+          <div class="vidstat-item">
+            <span class="vidstat-label">Stream Status</span>
+            <span class="vidstat-val" id="vidstatStatus">--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Live Telemetry + Pipeline -->
+  <section class="panel right-panel">
+    <h2 class="panel-title"><i class="fa-solid fa-gauge-high"></i> Live Telemetry</h2>
+
+    <!-- Mission Progress Pipeline Widget -->
+    <div class="pipeline-widget" style="margin-bottom:10px;">
+      <div class="pipeline-header">
+        <span class="pipeline-title"><i class="fa-solid fa-circle-nodes" style="margin-right:4px;"></i>AI Pipeline</span>
+        <div class="pipeline-meta">
+          <span class="pipeline-pct" id="topPipelinePct">0%</span>
+          <span class="pipeline-elapsed" id="topPipelineElapsed">00:00</span>
+        </div>
+      </div>
+      <div class="pipeline-track" id="pipelineTrack" onclick="openPipelinePopup()" title="Click for details">
+        <div class="pipe-stage" id="pstage-0"><div class="pipe-dot"></div><span class="pipe-label">Receive</span></div>
+        <div class="pipe-stage" id="pstage-1"><div class="pipe-dot"></div><span class="pipe-label">Decode</span></div>
+        <div class="pipe-stage" id="pstage-2"><div class="pipe-dot"></div><span class="pipe-label">AI Infer</span></div>
+        <div class="pipe-stage" id="pstage-3"><div class="pipe-dot"></div><span class="pipe-label">Compare</span></div>
+        <div class="pipe-stage" id="pstage-4"><div class="pipe-dot"></div><span class="pipe-label">Save</span></div>
+        <div class="pipe-stage" id="pstage-5"><div class="pipe-dot"></div><span class="pipe-label">Publish</span></div>
+      </div>
+      <div class="pipeline-bar-wrap">
+        <div class="pipeline-bar-fill" id="topPipelineBar"></div>
+      </div>
+    </div>
+
+    <!-- Avionics Telemetry Grid -->
+    <div class="telemetry-avionics" id="telemetryGrid">
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-shield av-icon"></i><span class="av-label">Armed</span></div>
+        <span class="av-value" id="telArmed">--</span>
+        <span class="av-unit" id="telConnection">--</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-sliders av-icon"></i><span class="av-label">Mode</span></div>
+        <span class="av-value" id="telMode">--</span>
+        <span class="av-unit">Flight Mode</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-arrows-up-down av-icon"></i><span class="av-label">Altitude</span></div>
+        <span class="av-value" id="telAltitude">--</span>
+        <span class="av-unit">m AGL</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-compass av-icon"></i><span class="av-label">Heading</span></div>
+        <span class="av-value" id="telHeading">--</span>
+        <span class="av-unit">degrees</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-wind av-icon"></i><span class="av-label">Speed</span></div>
+        <span class="av-value" id="telGroundspeed">--</span>
+        <span class="av-unit">m/s GND</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-arrow-trend-up av-icon"></i><span class="av-label">Climb</span></div>
+        <span class="av-value" id="telClimb">--</span>
+        <span class="av-unit">m/s rate</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-battery-three-quarters av-icon"></i><span class="av-label">Battery</span></div>
+        <span class="av-value" id="telBatteryPct">--</span>
+        <span class="av-unit">% remaining</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-bolt av-icon"></i><span class="av-label">Voltage</span></div>
+        <span class="av-value" id="telBatteryVoltage">--</span>
+        <span class="av-unit">volts</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-satellite av-icon"></i><span class="av-label">GPS Fix</span></div>
+        <span class="av-value" id="telGpsFix">--</span>
+        <span class="av-unit" id="telSatellites">-- sats</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-location-dot av-icon"></i><span class="av-label">Latitude</span></div>
+        <span class="av-value" id="telLatitude" style="font-size:11px;">--</span>
+        <span class="av-unit">deg N</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-location-crosshairs av-icon"></i><span class="av-label">Longitude</span></div>
+        <span class="av-value" id="telLongitude" style="font-size:11px;">--</span>
+        <span class="av-unit">deg E</span>
+      </div>
+      <div class="avionics-card">
+        <div class="av-header"><i class="fa-solid fa-signal av-icon"></i><span class="av-label">Satellites</span></div>
+        <span class="av-value" id="telSatCount">--</span>
+        <span class="av-unit">in view</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM: Detection Results + Stats -->
+  <section class="panel bottom-panel">
+    <h2 class="panel-title"><i class="fa-solid fa-eye"></i> Detection Results</h2>
+    <div class="detection-content">
+      <div class="detection-image-wrapper" onclick="openImagePopupFromDetection()">
+        <img id="detectionImage" class="detection-image" alt="Latest detection">
+        <div class="detection-placeholder" id="detectionPlaceholder">Waiting for Detection...</div>
+      </div>
+      <div class="detection-details">
+        <div class="det-info-card"><span class="det-info-label"><i class="fa-solid fa-tag" style="margin-right:3px;"></i>Prompt</span><span class="det-info-val" id="detPrompt">--</span></div>
+        <div class="det-info-card"><span class="det-info-label"><i class="fa-solid fa-star" style="margin-right:3px;"></i>Confidence</span><span class="det-info-val" id="detConfidence">--</span></div>
+        <div class="det-info-card"><span class="det-info-label"><i class="fa-solid fa-vector-square" style="margin-right:3px;"></i>Bounding Box</span><span class="det-info-val mono" id="detBbox">--</span></div>
+        <div class="det-info-card"><span class="det-info-label"><i class="fa-solid fa-film" style="margin-right:3px;"></i>Frame Number</span><span class="det-info-val" id="detFrameNumber">--</span></div>
+        <div class="det-info-card"><span class="det-info-label"><i class="fa-solid fa-clock" style="margin-right:3px;"></i>Timestamp</span><span class="det-info-val" id="detTimestamp">--</span></div>
+        <div class="det-info-card"><span class="det-info-label"><i class="fa-solid fa-chart-simple" style="margin-right:3px;"></i>Similarity Score</span><span class="det-info-val" id="detSimilarity">--</span></div>
+        <div class="det-info-card"><span class="det-info-label"><i class="fa-solid fa-id-badge" style="margin-right:3px;"></i>Mission ID</span><span class="det-info-val" id="detMissionId">--</span></div>
+        <div class="det-info-card"><span class="det-info-label"><i class="fa-solid fa-microchip" style="margin-right:3px;"></i>Model</span><span class="det-info-val" id="detModel">--</span></div>
+        <div class="det-info-card"><span class="det-info-label"><i class="fa-solid fa-rotate" style="margin-right:3px;"></i>Image Refresh</span><span class="det-info-val" id="detRefresh">--</span></div>
+      </div>
+    </div>
+
+    <!-- KPI Stats -->
+    <div class="panel-subtitle"><i class="fa-solid fa-chart-pie" style="margin-right:5px;"></i>Mission Statistics</div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon blue"><i class="fa-solid fa-film"></i></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Frames Processed</span>
+          <span class="kpi-value" id="mcStatFrames">--</span>
+          <span class="kpi-sub">total frames analyzed</span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon green"><i class="fa-solid fa-eye"></i></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Detections</span>
+          <span class="kpi-value" id="mcStatDetections">--</span>
+          <span class="kpi-sub">confirmed hits</span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon purple"><i class="fa-solid fa-gauge"></i></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Current FPS</span>
+          <span class="kpi-value" id="mcStatFps">--</span>
+          <span class="kpi-sub">frames per second</span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon orange"><i class="fa-solid fa-star"></i></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Confidence</span>
+          <span class="kpi-value" id="mcStatConfidence">--</span>
+          <span class="kpi-sub">latest detection score</span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon teal"><i class="fa-solid fa-clock-rotate-left"></i></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Runtime</span>
+          <span class="kpi-value" id="mcStatRuntime">--</span>
+          <span class="kpi-sub">mission elapsed time</span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon red"><i class="fa-solid fa-chart-line"></i></div>
+        <div class="kpi-body">
+          <span class="kpi-label">Detection Rate</span>
+          <span class="kpi-value" id="mcStatDetRate">--</span>
+          <span class="kpi-sub">detections / min</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-subtitle"><i class="fa-solid fa-images" style="margin-right:5px;"></i>Detection History</div>
+    <div class="detection-gallery" id="detectionGallery"></div>
+  </section>
+
+</div><!-- end .dashboard-grid -->
+
+<!-- Mission Control Status (mission.js section) -->
+<section class="panel mission-control-panel">
+  <h2 class="panel-title"><i class="fa-solid fa-tower-control"></i> Mission Control Status</h2>
+  <div class="mc-offline-banner" id="mcOfflineBanner">&#9888; Mission Status Unavailable &mdash; Backend Connection Lost. Retrying...</div>
+
+  <div class="mc-section">
+    <h3 class="mc-section-title">System Health &amp; Connections</h3>
+    <div class="mc-health-grid">
+      <div class="mc-health-card"><span id="mcBackendIcon">&#11036;</span><span class="mc-health-text"><span class="mc-health-name">Backend</span><span class="mc-health-val" id="mcBackendText">Unknown</span></span></div>
+      <div class="mc-health-card"><span id="mcCameraIcon">&#11036;</span><span class="mc-health-text"><span class="mc-health-name">Camera</span><span class="mc-health-val" id="mcCameraText">Unknown</span></span></div>
+      <div class="mc-health-card"><span id="mcTelemetryIcon">&#11036;</span><span class="mc-health-text"><span class="mc-health-name">Telemetry</span><span class="mc-health-val" id="mcTelemetryText">Unknown</span></span></div>
+      <div class="mc-health-card"><span id="mcStreamIcon">&#11036;</span><span class="mc-health-text"><span class="mc-health-name">RTSP Stream</span><span class="mc-health-val" id="mcStreamText">Unknown</span></span></div>
+      <div class="mc-health-card"><span id="mcMissionIcon">&#11036;</span><span class="mc-health-text"><span class="mc-health-name">Mission</span><span class="mc-health-val" id="mcMissionText">Unknown</span></span></div>
+    </div>
+  </div>
+
+  <div class="mc-section">
+    <h3 class="mc-section-title">Mission Progress &amp; AI Pipeline</h3>
+    <div class="mc-progress-pipeline">
+      <div>
+        <div class="mc-stage-row">
+          <span class="mc-stage-icon" id="mcStageIcon">&#9203;</span>
+          <span class="mc-stage-title" id="mcStageTitle">Waiting</span>
+        </div>
+        <div class="mc-progress-track"><div class="mc-progress-fill" id="mcProgressFill"></div></div>
+        <div class="mc-progress-percent" id="mcProgressPercent">0%</div>
+        <div class="mc-info-grid">
+          <div class="mc-info-box accent">
+            <span class="mc-label">Target Prompt</span>
+            <span class="mc-val" id="mcTargetPrompt">-</span>
+          </div>
+          <div class="mc-info-box">
+            <span class="mc-label">Current AI Activity</span>
+            <span class="mc-val" id="mcAiActivity">Standing by.</span>
+          </div>
+          <div class="mc-info-box" style="grid-column:1/-1">
+            <span class="mc-label">Stage Explanation</span>
+            <span class="mc-val" id="mcStageExplanation">System idle. Waiting for operator.</span>
+          </div>
+        </div>
+        <div>
+          <span class="mc-label" style="display:inline;margin-right:6px;">Next Expected Step</span>
+          <span class="mc-next-step" id="mcNextStep">Mission Initialization</span>
+        </div>
+      </div>
+      <div>
+        <div class="mc-label" style="margin-bottom:7px;">AI Pipeline Status</div>
+        <div class="mc-pipeline-wrap" id="mcPipeline"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mc-section">
+    <h3 class="mc-section-title">Mission Timeline</h3>
+    <div class="mc-timeline-list" id="mcTimeline">
+      <div class="mc-timeline-empty">No mission events yet.</div>
+    </div>
+  </div>
+
+  <div class="mc-section">
+    <h3 class="mc-section-title">Mission Timing</h3>
+    <div class="mc-timing-grid">
+      <div class="mc-timing-card"><span class="mc-label">Runtime</span><span class="mc-value" id="mcRuntime">00:00:00</span></div>
+      <div class="mc-timing-card"><span class="mc-label">Running Since</span><span class="mc-value" id="mcStartTime">--</span></div>
+      <div class="mc-timing-card"><span class="mc-label">Est. Remaining</span><span class="mc-value" id="mcEta">Learning...</span></div>
+      <div class="mc-timing-card"><span class="mc-label">Expected Completion</span><span class="mc-value" id="mcCompletion">--</span></div>
+      <div class="mc-timing-card"><span class="mc-label">Current FPS</span><span class="mc-value" id="mcCurrentFps">--</span></div>
+      <div class="mc-timing-card"><span class="mc-label">Average FPS</span><span class="mc-value" id="mcAvgFps">--</span></div>
+    </div>
+  </div>
+
+  <div class="mc-section">
+    <h3 class="mc-section-title">Mission Statistics</h3>
+    <div class="mc-stats-grid">
+      <div class="mc-stat-card"><span class="mc-label">Prompt</span><span class="mc-value" id="mcStatPrompt">--</span></div>
+      <div class="mc-stat-card"><span class="mc-label">Model</span><span class="mc-value" id="mcStatModel">--</span></div>
+      <div class="mc-stat-card"><span class="mc-label">Mission ID</span><span class="mc-value" id="mcStatMissionId">--</span></div>
+      <div class="mc-stat-card"><span class="mc-label">Average FPS</span><span class="mc-value" id="mcStatAvgFps">--</span></div>
+      <div class="mc-stat-card"><span class="mc-label">Detections/Min</span><span class="mc-value" id="mcStatDetRate2">--</span></div>
+    </div>
+  </div>
+</section>
+
+</div><!-- end panel-mission -->
+
+<!-- ============================================================
+     TAB: LIVE FEED
+     ============================================================ -->
+<div id="panel-livefeed" class="tab-panel">
+<div class="livefeed-grid">
+  <div class="panel">
+    <h2 class="panel-title"><i class="fa-solid fa-video"></i> Live Dual Stream</h2>
+    <div class="dual-video-grid">
+      <div class="video-column">
+        <div class="video-column-label"><i class="fa-regular fa-circle" style="color:var(--success);margin-right:4px;"></i>Original Feed</div>
+        <div class="video-wrapper">
+          <iframe id="videoFrame2" class="video-frame" title="Original feed - Live Feed tab" allow="autoplay; fullscreen" allowfullscreen></iframe>
+          <div class="video-placeholder" id="videoPlaceholder2">No video source configured</div>
+        </div>
+      </div>
+      <div class="video-column">
+        <div class="video-column-label"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent);margin-right:4px;"></i>AI Processed Feed</div>
+        <div class="video-wrapper">
+          <iframe id="processedFrame2" class="video-frame" title="Processed AI feed - Live Feed tab" allow="autoplay; fullscreen" allowfullscreen></iframe>
+          <div class="video-placeholder" id="processedPlaceholder2">AI stream unavailable</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel-subtitle"><i class="fa-solid fa-chart-bar" style="margin-right:5px;"></i>Video Statistics</div>
+    <div class="vidstats-grid" style="margin-top:0;">
+      <div class="vidstat-item"><span class="vidstat-label">FPS</span><span class="vidstat-val" id="lf-videoFps">--</span></div>
+      <div class="vidstat-item"><span class="vidstat-label">Bitrate</span><span class="vidstat-val" id="lf-videoBitrate">--</span></div>
+      <div class="vidstat-item"><span class="vidstat-label">Latency</span><span class="vidstat-val" id="lf-videoLatency">--</span></div>
+      <div class="vidstat-item"><span class="vidstat-label">Dropped</span><span class="vidstat-val" id="lf-videoDropped">--</span></div>
+    </div>
+  </div>
+  <section class="panel">
+    <h2 class="panel-title"><i class="fa-solid fa-gauge-high"></i> Telemetry</h2>
+    <div class="telemetry-avionics">
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-shield av-icon"></i><span class="av-label">Armed</span></div><span class="av-value" id="lf-telArmed">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-sliders av-icon"></i><span class="av-label">Mode</span></div><span class="av-value" id="lf-telMode">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-arrows-up-down av-icon"></i><span class="av-label">Alt</span></div><span class="av-value" id="lf-telAltitude">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-compass av-icon"></i><span class="av-label">Hdg</span></div><span class="av-value" id="lf-telHeading">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-wind av-icon"></i><span class="av-label">Speed</span></div><span class="av-value" id="lf-telGroundspeed">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-battery-three-quarters av-icon"></i><span class="av-label">Batt</span></div><span class="av-value" id="lf-telBatteryPct">--</span></div>
+    </div>
+  </section>
+</div>
+</div>
+
+<!-- ============================================================
+     TAB: TELEMETRY
+     ============================================================ -->
+<div id="panel-telemetry" class="tab-panel">
+<div class="telemetry-page-grid">
+  <section class="panel">
+    <h2 class="panel-title"><i class="fa-solid fa-gauge-high"></i> Flight Telemetry</h2>
+    <div class="telemetry-full-grid">
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-plug av-icon"></i><span class="av-label">Connection</span></div><span class="av-value" id="tp-telConnection">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-sliders av-icon"></i><span class="av-label">Flight Mode</span></div><span class="av-value" id="tp-telMode">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-shield av-icon"></i><span class="av-label">Armed Status</span></div><span class="av-value" id="tp-telArmed">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-arrows-up-down av-icon"></i><span class="av-label">Altitude</span></div><span class="av-value" id="tp-telAltitude">--</span><span class="av-unit">m AGL</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-compass av-icon"></i><span class="av-label">Heading</span></div><span class="av-value" id="tp-telHeading">--</span><span class="av-unit">degrees</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-wind av-icon"></i><span class="av-label">Ground Speed</span></div><span class="av-value" id="tp-telGroundspeed">--</span><span class="av-unit">m/s</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-arrow-trend-up av-icon"></i><span class="av-label">Climb Rate</span></div><span class="av-value" id="tp-telClimb">--</span><span class="av-unit">m/s</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-battery-three-quarters av-icon"></i><span class="av-label">Battery</span></div><span class="av-value" id="tp-telBatteryPct">--</span><span class="av-unit">%</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-bolt av-icon"></i><span class="av-label">Voltage</span></div><span class="av-value" id="tp-telBatteryVoltage">--</span><span class="av-unit">V</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-satellite av-icon"></i><span class="av-label">GPS Fix</span></div><span class="av-value" id="tp-telGpsFix">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-signal av-icon"></i><span class="av-label">Satellites</span></div><span class="av-value" id="tp-telSatellites">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-location-dot av-icon"></i><span class="av-label">Latitude</span></div><span class="av-value" id="tp-telLatitude" style="font-size:11px;">--</span></div>
+      <div class="avionics-card"><div class="av-header"><i class="fa-solid fa-location-crosshairs av-icon"></i><span class="av-label">Longitude</span></div><span class="av-value" id="tp-telLongitude" style="font-size:11px;">--</span></div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2 class="panel-title"><i class="fa-solid fa-circle-info"></i> Mission Summary</h2>
+    <div class="mission-status-card" style="background:transparent;border:none;padding:0;">
+      <div class="status-row"><span>State</span><span id="tp-msState">--</span></div>
+      <div class="status-row"><span>Mission ID</span><span id="tp-msMissionId">--</span></div>
+      <div class="status-row"><span>Model</span><span id="tp-msModel">--</span></div>
+      <div class="status-row"><span>Prompt</span><span id="tp-msPrompt">--</span></div>
+      <div class="status-row"><span>Runtime</span><span id="tp-msRuntime">--</span></div>
+    </div>
+    <div class="panel-subtitle" style="margin-top:12px;">AI Pipeline</div>
+    <div class="pipeline-track" style="cursor:default;padding:8px 0;">
+      <div class="pipe-stage" id="tp-pstage-0"><div class="pipe-dot"></div><span class="pipe-label">Receive</span></div>
+      <div class="pipe-stage" id="tp-pstage-1"><div class="pipe-dot"></div><span class="pipe-label">Decode</span></div>
+      <div class="pipe-stage" id="tp-pstage-2"><div class="pipe-dot"></div><span class="pipe-label">Infer</span></div>
+      <div class="pipe-stage" id="tp-pstage-3"><div class="pipe-dot"></div><span class="pipe-label">Compare</span></div>
+      <div class="pipe-stage" id="tp-pstage-4"><div class="pipe-dot"></div><span class="pipe-label">Save</span></div>
+      <div class="pipe-stage" id="tp-pstage-5"><div class="pipe-dot"></div><span class="pipe-label">Publish</span></div>
+    </div>
+  </section>
+</div>
+</div>
+
+<!-- ============================================================
+     TAB: DETECTION RESULTS
+     ============================================================ -->
+<div id="panel-results" class="tab-panel">
+<div class="panel">
+  <h2 class="panel-title"><i class="fa-solid fa-eye"></i> Detection Results</h2>
+  <div class="detection-content">
+    <div class="detection-image-wrapper" onclick="openImagePopupFromDetection()">
+      <img id="detectionImage2" class="detection-image" alt="Latest detection (Results tab)">
+      <div class="detection-placeholder" id="detectionPlaceholder2">Waiting for Detection...</div>
+    </div>
+    <div class="detection-details">
+      <div class="det-info-card"><span class="det-info-label">Prompt</span><span class="det-info-val" id="res-detPrompt">--</span></div>
+      <div class="det-info-card"><span class="det-info-label">Confidence</span><span class="det-info-val" id="res-detConfidence">--</span></div>
+      <div class="det-info-card"><span class="det-info-label">Bounding Box</span><span class="det-info-val mono" id="res-detBbox">--</span></div>
+      <div class="det-info-card"><span class="det-info-label">Frame Number</span><span class="det-info-val" id="res-detFrameNumber">--</span></div>
+      <div class="det-info-card"><span class="det-info-label">Timestamp</span><span class="det-info-val" id="res-detTimestamp">--</span></div>
+      <div class="det-info-card"><span class="det-info-label">Similarity Score</span><span class="det-info-val" id="res-detSimilarity">--</span></div>
+      <div class="det-info-card"><span class="det-info-label">Mission ID</span><span class="det-info-val" id="res-detMissionId">--</span></div>
+      <div class="det-info-card"><span class="det-info-label">Model</span><span class="det-info-val" id="res-detModel">--</span></div>
+    </div>
+  </div>
+  <div class="panel-subtitle">Detection History</div>
+  <div class="detection-gallery" id="detectionGallery2" style="max-height:300px;"></div>
+</div>
+</div>
+
+<!-- ============================================================
+     TAB: CORTEX — T1/T2 IIT BOMBAY WORKSPACE
+     ============================================================ -->
+<div id="panel-cortex" class="tab-panel">
+  <section class="cortex-panel">
+    <button class="cortex-fullscreen-btn" type="button" onclick="toggleCortexFullscreen()" title="Fullscreen CORTEX" aria-label="Fullscreen CORTEX">
+      <i class="fa-solid fa-expand"></i>
+      <span>Fullscreen</span>
+    </button>
+    <div class="cortex-loading" id="cortexLoading">
+      <i class="fa-solid fa-circle-notch fa-spin"></i>
+      <span>Connecting to the CORTEX workspace on port 3000…</span>
+    </div>
+    <iframe id="cortexFrame" class="cortex-frame" title="CORTEX — T1/T2 IIT Bombay workspace" allow="camera; microphone; autoplay; fullscreen" allowfullscreen onload="handleCortexLoad()"></iframe>
+  </section>
+</div>
+
+<!-- ============================================================
+     TAB: ENGINEERING LOGS
+     ============================================================ -->
+<div id="panel-logs" class="tab-panel">
+<section class="panel engineering-log-panel" style="margin:0 auto;max-width:100%;">
+  <h2 class="panel-title"><i class="fa-solid fa-terminal"></i> Engineering Log</h2>
+  <div class="log-entries" id="engineeringLog" style="max-height:60vh;"></div>
+</section>
+</div>
+
+</div><!-- end .dashboard-wrap -->
+
+<!-- ACTIVE MISSION DRAWER -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeMissionDrawer()"></div>
+<aside class="mission-drawer" id="missionDrawer" role="dialog" aria-label="Active Mission Details">
+  <div class="drawer-header">
+    <span class="drawer-title"><i class="fa-solid fa-helicopter" style="margin-right:8px;"></i>Active Mission</span>
+    <button class="drawer-close" onclick="closeMissionDrawer()" aria-label="Close">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-section">
+      <div class="drawer-section-title">Mission Info</div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">Mission ID</span><span class="drawer-stat-val" id="dr-msMissionId">--</span></div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">State</span><span class="drawer-stat-val" id="dr-msState">--</span></div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">Model</span><span class="drawer-stat-val" id="dr-msModel">--</span></div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">Prompt</span><span class="drawer-stat-val" id="dr-msPrompt">--</span></div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">Runtime</span><span class="drawer-stat-val" id="dr-msRuntime">--</span></div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Performance</div>
+      <div class="drawer-kpi-grid">
+        <div class="drawer-kpi"><span class="drawer-kpi-label">Frames</span><span class="drawer-kpi-val" id="dr-frames">--</span></div>
+        <div class="drawer-kpi"><span class="drawer-kpi-label">Detections</span><span class="drawer-kpi-val" id="dr-detections">--</span></div>
+        <div class="drawer-kpi"><span class="drawer-kpi-label">FPS</span><span class="drawer-kpi-val" id="dr-fps">--</span></div>
+        <div class="drawer-kpi"><span class="drawer-kpi-label">Confidence</span><span class="drawer-kpi-val" id="dr-confidence">--</span></div>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Pipeline Status</div>
+      <div id="dr-pipeline" style="font-size:12px;color:var(--text-secondary);">Standing by.</div>
+    </div>
+  </div>
+</aside>
+
+<!-- PIPELINE DETAIL POPUP -->
+<div class="pipeline-popup-overlay" id="pipelinePopupOverlay" onclick="closePipelinePopupOutside(event)">
+  <div class="pipeline-popup">
+    <div class="pipeline-popup-header">
+      <span class="pipeline-popup-title"><i class="fa-solid fa-circle-nodes" style="margin-right:8px;"></i>AI Processing Pipeline</span>
+      <button class="pipeline-popup-close" onclick="closePipelinePopup()">&times;</button>
+    </div>
+    <div class="pipeline-popup-body">
+      <div class="pipeline-stage-detail"><div class="psd-num">1</div><div class="psd-content"><div class="psd-name">Receive</div><div class="psd-desc">Ingests raw RTSP stream frames from the UAV camera via MediaMTX. Validates frame integrity and buffers incoming data.</div></div></div>
+      <div class="pipeline-stage-detail"><div class="psd-num">2</div><div class="psd-content"><div class="psd-name">Decode</div><div class="psd-desc">Decodes compressed video frames (H.264/H.265) into raw image data. Applies preprocessing such as resizing and normalization.</div></div></div>
+      <div class="pipeline-stage-detail"><div class="psd-num">3</div><div class="psd-content"><div class="psd-name">AI Inference</div><div class="psd-desc">Runs the selected AI model against each decoded frame. Generates embeddings and detects targets matching the mission prompt.</div></div></div>
+      <div class="pipeline-stage-detail"><div class="psd-num">4</div><div class="psd-content"><div class="psd-name">Compare</div><div class="psd-desc">Compares AI inference results against the mission target prompt using cosine similarity. Applies confidence threshold filtering.</div></div></div>
+      <div class="pipeline-stage-detail"><div class="psd-num">5</div><div class="psd-content"><div class="psd-name">Save</div><div class="psd-desc">Saves confirmed detections (bounding box, confidence, frame snapshot) to backend storage for post-mission analysis.</div></div></div>
+      <div class="pipeline-stage-detail"><div class="psd-num">6</div><div class="psd-content"><div class="psd-name">Publish</div><div class="psd-desc">Broadcasts detection events to the GCS dashboard in real time. Updates mission statistics and triggers operator notifications.</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE POPUP MODAL (IDs unchanged for script.js compatibility) -->
+<div class="image-popup-overlay" id="imagePopup" style="display:none;">
+  <div class="image-popup">
+    <button class="popup-close" id="popupClose">&times;</button>
+    <img id="popupImage" alt="Detection">
+    <div class="popup-details" id="popupDetails"></div>
+    <div class="popup-actions">
+      <a id="popupDownload" class="btn btn-primary" download>
+        <i class="fa-solid fa-download"></i> Download Image
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="notification-area" id="notificationArea"></div>
+
+<!-- SCRIPTS: load order critical -->
+<script src="config.js"></script>
+<script src="mission.js"></script>
+<script src="script.js"></script>
+
+<script>
+/* =========================================================
+   DASHBOARD UI LOGIC
+   Tab switching, drawers, popups, status bar sync,
+   pipeline widget, video stats toggle.
+   No API calls modified Ã¢â‚¬â€ only UI interactions.
+   ========================================================= */
+
+// Tab switching
+var TAB_MAP = {
+  mission:   { btn:'tabMissionCtrl', panel:'panel-mission'   },
+  livefeed:  { btn:'tabLiveFeed',    panel:'panel-livefeed'  },
+  telemetry: { btn:'tabTelemetry',   panel:'panel-telemetry' },
+  results:   { btn:'tabResults',     panel:'panel-results'   },
+  cortex:    { btn:'tabCortex',      panel:'panel-cortex'    },
+  logs:      { btn:'tabLogs',        panel:'panel-logs'      }
+};
+
+function switchTab(key) {
+  Object.keys(TAB_MAP).forEach(function(k) {
+    var t = TAB_MAP[k];
+    document.getElementById(t.btn).classList.toggle('active', k === key);
+    document.getElementById(t.panel).classList.toggle('active', k === key);
+    document.getElementById(t.btn).setAttribute('aria-selected', k === key ? 'true' : 'false');
+  });
+  if (key === 'cortex') loadCortexWorkspace();
+}
+
+function loadCortexWorkspace() {
+  var frame = document.getElementById('cortexFrame');
+  if (!frame.getAttribute('src')) frame.setAttribute('src', window.GCS_CONFIG.CORTEX_URL);
+}
+
+function handleCortexLoad() {
+  document.getElementById('cortexLoading').classList.add('hidden');
+}
+
+function requestFullscreenFor(el) {
+  if (!el) return;
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+    return;
+  }
+  if (el.requestFullscreen) el.requestFullscreen();
+}
+
+function toggleGcsFullscreen() {
+  requestFullscreenFor(document.documentElement);
+}
+
+function toggleCortexFullscreen() {
+  loadCortexWorkspace();
+  requestFullscreenFor(document.getElementById('cortexFrame'));
+}
+
+// Video statistics collapsible
+function toggleVidStats(headerEl) {
+  var body   = headerEl.nextElementSibling;
+  var toggle = headerEl.querySelector('.vidstats-toggle');
+  var isOpen = body.classList.toggle('open');
+  toggle.classList.toggle('open', isOpen);
+  headerEl.setAttribute('aria-expanded', isOpen);
+}
+
+// Active Mission Drawer
+function openMissionDrawer() {
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.getElementById('missionDrawer').classList.add('open');
+  syncDrawerData();
+}
+
+function closeMissionDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('missionDrawer').classList.remove('open');
+}
+
+function syncDrawerData() {
+  var pairs = [
+    ['msMissionId','dr-msMissionId'],['msState','dr-msState'],
+    ['msModel','dr-msModel'],['msPrompt','dr-msPrompt'],
+    ['msRuntime','dr-msRuntime'],['mcStatFrames','dr-frames'],
+    ['mcStatDetections','dr-detections'],['mcStatFps','dr-fps'],
+    ['mcStatConfidence','dr-confidence']
+  ];
+  pairs.forEach(function(p) {
+    var s = document.getElementById(p[0]);
+    var d = document.getElementById(p[1]);
+    if (s && d) d.textContent = s.textContent;
+  });
+  var pipeEl = document.getElementById('mcStageTitle');
+  var drPipe = document.getElementById('dr-pipeline');
+  if (pipeEl && drPipe) drPipe.textContent = pipeEl.textContent || 'Standing by.';
+}
+
+setInterval(function(){
+  if (document.getElementById('missionDrawer').classList.contains('open')) syncDrawerData();
+}, 1000);
+
+// Pipeline Popup
+function openPipelinePopup() {
+  document.getElementById('pipelinePopupOverlay').classList.add('open');
+}
+function closePipelinePopup() {
+  document.getElementById('pipelinePopupOverlay').classList.remove('open');
+}
+function closePipelinePopupOutside(e) {
+  if (e.target === document.getElementById('pipelinePopupOverlay')) closePipelinePopup();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeMissionDrawer(); closePipelinePopup(); }
+});
+
+// Open detection image popup from card click
+function openImagePopupFromDetection() {
+  var img = document.getElementById('detectionImage');
+  if (!img || !img.classList.contains('active')) return;
+  var popup    = document.getElementById('imagePopup');
+  var popupImg = document.getElementById('popupImage');
+  if (popup && popupImg) { popupImg.src = img.src; popup.style.display = 'flex'; }
+}
+
+// Status Bar Sync
+function syncStatusBar() {
+  var bDot = document.getElementById('backendDot');
+  var bTxt = document.getElementById('backendStatusText');
+  syncSBItem('sbBackendDot','sbBackendVal', bDot, 'Operational', 'Offline');
+
+  var tDot = document.getElementById('telemetryDot');
+  syncSBItem('sbTelemetryDot','sbTelemetryVal', tDot, 'Receiving', 'Lost');
+
+  var mDot    = document.getElementById('missionDot');
+  var sbMDot  = document.getElementById('sbMissionDot');
+  var sbMVal  = document.getElementById('sbMissionVal');
+  if (mDot && sbMDot) {
+    var run = mDot.classList.contains('online');
+    sbMDot.className = 'status-bar-dot ' + (run ? 'online' : '');
+    if (sbMVal) sbMVal.textContent = run ? 'Running' : 'Idle';
+  }
+
+  var camTxt = document.getElementById('mcCameraText');
+  var sbCDot = document.getElementById('sbCameraDot');
+  var sbCVal = document.getElementById('sbCameraVal');
+  if (camTxt && sbCDot) {
+    var camOk = /ok|live|connected/i.test(camTxt.textContent);
+    sbCDot.className = 'status-bar-dot ' + (camOk ? 'online' : (camTxt.textContent === 'Unknown' ? '' : 'offline'));
+    if (sbCVal) sbCVal.textContent = camTxt.textContent || 'â€”';
+  }
+
+  var strmTxt = document.getElementById('mcStreamText');
+  var sbRDot  = document.getElementById('sbRtspDot');
+  var sbRVal  = document.getElementById('sbRtspVal');
+  if (strmTxt && sbRDot) {
+    var strmOk = /stream|ok|live/i.test(strmTxt.textContent);
+    sbRDot.className = 'status-bar-dot ' + (strmOk ? 'online' : (strmTxt.textContent === 'Unknown' ? '' : 'offline'));
+    if (sbRVal) sbRVal.textContent = strmTxt.textContent || 'â€”';
+  }
+}
+
+function syncSBItem(dotId, valId, srcDot, okLabel, badLabel) {
+  var sbDot = document.getElementById(dotId);
+  var sbVal = document.getElementById(valId);
+  if (!srcDot || !sbDot) return;
+  var isOn  = srcDot.classList.contains('online');
+  var isOff = srcDot.classList.contains('offline');
+  sbDot.className = 'status-bar-dot ' + (isOn ? 'online' : (isOff ? 'offline' : ''));
+  if (sbVal) sbVal.textContent = isOn ? okLabel : (isOff ? badLabel : 'â€”');
+}
+
+setInterval(syncStatusBar, 1000);
+
+// Mission Badge Sync
+function syncMissionBadge() {
+  var mDot   = document.getElementById('missionDot');
+  var bDot   = document.getElementById('badgeDot');
+  var bLabel = document.getElementById('badgeLabel');
+  var badge  = document.getElementById('activeMissionBadge');
+  if (!mDot) return;
+  var running = mDot.classList.contains('online');
+  if (bDot)   bDot.style.background = running ? 'var(--success)' : '#94a3b8';
+  if (bLabel) bLabel.textContent = running ? 'Mission Running' : 'No Active Mission';
+  if (badge) {
+    badge.style.background   = running ? 'var(--success-bg)' : '#f1f5f9';
+    badge.style.color        = running ? 'var(--success)'    : 'var(--text-muted)';
+    badge.style.borderColor  = running ? 'rgba(22,163,74,.3)' : 'var(--border)';
+  }
+}
+setInterval(syncMissionBadge, 1000);
+
+// Pipeline Widget Sync
+function syncPipelineWidget() {
+  var mcPct  = document.getElementById('mcProgressPercent');
+  var topPct = document.getElementById('topPipelinePct');
+  if (mcPct && topPct) topPct.textContent = mcPct.textContent || '0%';
+
+  var mcRt     = document.getElementById('mcRuntime');
+  var topElaps = document.getElementById('topPipelineElapsed');
+  if (mcRt && topElaps) {
+    var parts = (mcRt.textContent || '00:00:00').split(':');
+    topElaps.textContent = parts.length >= 2 ? parts[0]+':'+parts[1] : mcRt.textContent;
+  }
+
+  var mcFill  = document.getElementById('mcProgressFill');
+  var topBar  = document.getElementById('topPipelineBar');
+  if (mcFill && topBar) topBar.style.width = mcFill.style.width || '0%';
+
+  var mcPipeEl = document.getElementById('mcPipeline');
+  if (!mcPipeEl) return;
+  var steps     = mcPipeEl.querySelectorAll('.mc-pipe-step');
+  var activeIdx = -1, doneCount = 0;
+  steps.forEach(function(step, i) {
+    if (step.classList.contains('mc-pipe-active')) activeIdx = i;
+    if (step.classList.contains('mc-pipe-done'))   doneCount = i + 1;
+  });
+  for (var i = 0; i < 6; i++) {
+    var stage = document.getElementById('pstage-'+i);
+    if (stage) { stage.classList.remove('done','active'); if (i<doneCount) stage.classList.add('done'); else if (i===activeIdx) stage.classList.add('active'); }
+    var tpStage = document.getElementById('tp-pstage-'+i);
+    if (tpStage) { tpStage.classList.remove('done','active'); if (i<doneCount) tpStage.classList.add('done'); else if (i===activeIdx) tpStage.classList.add('active'); }
+  }
+}
+setInterval(syncPipelineWidget, 1000);
+
+// Mirror telemetry / detection to secondary tabs
+function mirrorData() {
+  var telFields = [
+    ['telArmed',['lf-telArmed','tp-telArmed']],
+    ['telMode',['lf-telMode','tp-telMode']],
+    ['telAltitude',['lf-telAltitude','tp-telAltitude']],
+    ['telHeading',['lf-telHeading','tp-telHeading']],
+    ['telGroundspeed',['lf-telGroundspeed','tp-telGroundspeed']],
+    ['telBatteryPct',['lf-telBatteryPct','tp-telBatteryPct']],
+    ['telBatteryVoltage',['tp-telBatteryVoltage']],
+    ['telGpsFix',['tp-telGpsFix']],
+    ['telSatellites',['tp-telSatellites']],
+    ['telLatitude',['tp-telLatitude']],
+    ['telLongitude',['tp-telLongitude']],
+    ['telConnection',['tp-telConnection']],
+    ['telClimb',['tp-telClimb']]
+  ];
+  telFields.forEach(function(pair) {
+    var src = document.getElementById(pair[0]);
+    if (!src) return;
+    pair[1].forEach(function(id) {
+      var dst = document.getElementById(id);
+      if (dst) dst.textContent = src.textContent;
+    });
+  });
+
+  // Satellite count display fix
+  var satEl = document.getElementById('telSatellites');
+  var satCnt = document.getElementById('telSatCount');
+  if (satEl && satCnt) satCnt.textContent = satEl.textContent;
+
+  // Video stats mirror
+  ['videoFps','videoBitrate','videoLatency','videoDropped'].forEach(function(id) {
+    var s = document.getElementById(id); var d = document.getElementById('lf-'+id);
+    if (s && d) d.textContent = s.textContent;
+  });
+
+  // Detection results mirror
+  ['detPrompt','detConfidence','detBbox','detFrameNumber','detTimestamp','detSimilarity','detMissionId','detModel'].forEach(function(id) {
+    var s = document.getElementById(id); var d = document.getElementById('res-'+id);
+    if (s && d) d.textContent = s.textContent;
+  });
+
+  // Mission status mirror
+  ['msState','msMissionId','msModel','msPrompt','msRuntime'].forEach(function(id) {
+    var s = document.getElementById(id); var d = document.getElementById('tp-'+id);
+    if (s && d) d.textContent = s.textContent;
+  });
+
+  // Video feed mirror
+  var vf1 = document.getElementById('videoFrame');
+  var vf2 = document.getElementById('videoFrame2');
+  if (vf1 && vf2 && vf1.src !== vf2.src) { vf2.src = vf1.src; }
+
+  var pf1 = document.getElementById('processedFrame');
+  var pf2 = document.getElementById('processedFrame2');
+  if (pf1 && pf2 && pf1.src !== pf2.src) { pf2.src = pf1.src; }
+
+  // Placeholder visibility mirror
+  var vp1 = document.getElementById('videoPlaceholder');
+  var vp2 = document.getElementById('videoPlaceholder2');
+  if (vp1 && vp2) { vp2.style.display = vp1.style.display; vp2.textContent = vp1.textContent; }
+
+  var pp1 = document.getElementById('processedPlaceholder');
+  var pp2 = document.getElementById('processedPlaceholder2');
+  if (pp1 && pp2) { pp2.style.display = pp1.style.display; pp2.textContent = pp1.textContent; }
+}
+setInterval(mirrorData, 1000);
+
+// Sync detection image to Results tab
+function syncDetectionImage() {
+  var src = document.getElementById('detectionImage');
+  var dst = document.getElementById('detectionImage2');
+  var ph2 = document.getElementById('detectionPlaceholder2');
+  if (!src || !dst) return;
+  if (src.classList.contains('active')) {
+    dst.src = src.src; dst.classList.add('active');
+    if (ph2) ph2.style.display = 'none';
+  } else {
+    dst.classList.remove('active');
+    if (ph2) ph2.style.display = '';
+  }
+}
+setInterval(syncDetectionImage, 2000);
+
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    syncStatusBar(); syncMissionBadge(); syncPipelineWidget(); mirrorData();
+  }, 1500);
+});
+</script>
+</body>
+</html>

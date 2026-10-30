@@ -1,0 +1,71 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: campus_security
+      POSTGRES_PASSWORD: campus_security
+      POSTGRES_DB: campus_security
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campus_security"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./campus-security-system-complete/backend_server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://campus_security:campus_security@db:5432/campus_security
+      JWT_SECRET: change-me-in-production
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./campus-security-system-complete/backend_server:/app
+      - backend_models:/app/models
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  frontend:
+    build:
+      context: ./campus-security-system-complete/frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - backend
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    restart: unless-stopped
+    ports:
+      - "8554:8554/tcp"
+      - "8554:8554/udp"
+      - "8889:8889/tcp"
+      - "8889:8889/udp"
+      - "8189:8189/udp"
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+
+volumes:
+  postgres_data:
+  backend_models:
+  mediamtx_data:

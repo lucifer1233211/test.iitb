@@ -1,0 +1,10 @@
+*.pyc
+__pycache__/
+datasets/
+face_db/
+experiments/
+*.jpg
+*.mp4
+fine_tune_ckpts/
+models/
+fine_tune/

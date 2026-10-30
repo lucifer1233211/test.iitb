@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+qdrant-client
+opencv-python-headless
+pydantic
+requests
+numpy>=2.0
+scikit-learn>=1.7.0
+onnxruntime
